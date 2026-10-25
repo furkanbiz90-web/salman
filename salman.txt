@@ -1,0 +1,9 @@
+git init
+git config --global user.email "furkanbiz90@gmai"
+git config --global user.name "furkanbiz90-web"
+git add .
+git commit -m "update files"
+git branch -M main
+git remote remove origin
+git remote add origin https://github.com/furkanbiz90-web/salman.git
+git push -u origin main --force

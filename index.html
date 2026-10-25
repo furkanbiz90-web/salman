@@ -1,0 +1,350 @@
+بولىدۇ! تۆۋەندە سىزگە HTML، CSS ۋە JavaScript قوشۇلغان، بىر ھۆججەتتىلا ئىشلەيدىغان زامانىۋې ھېسابلىغۇچ كودىنى
+تەييارلىدىم:
+
+```html
+<!DOCTYPE html>
+<html lang="ug" dir="ltr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>زامانىۋې ھېسابلىغۇچ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Noto Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            padding: 16px;
+        }
+
+        .calculator {
+            width: 100%;
+            max-width: 350px;
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 28px;
+            padding: 24px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        /* ——— ئېكران ——— */
+        .display {
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 18px;
+            padding: 18px;
+            text-align: right;
+            margin-bottom: 20px;
+            min-height: 110px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 6px;
+            overflow: hidden;
+        }
+
+        .history {
+            color: rgba(255, 255, 255, 0.45);
+            font-size: 17px;
+            min-height: 22px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .result {
+            color: #fff;
+            font-size: clamp(28px, 10vw, 42px);
+            font-weight: 300;
+            white-space: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .result::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* ——— كۇنۇپكا تاختىسى ——— */
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .buttons button {
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            height: 62px;
+            font-size: 22px;
+            cursor: pointer;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+            transition: background 0.15s, transform 0.1s;
+            user-select: none;
+        }
+
+        .buttons button:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        .buttons button:active {
+            transform: scale(0.92);
+        }
+
+        .fn {
+            color: #ffb340;
+            background: rgba(255, 179, 64, 0.10);
+        }
+
+        .fn:hover {
+            background: rgba(255, 179, 64, 0.22);
+        }
+
+        .op {
+            color: #6ea8ff;
+            background: rgba(110, 168, 255, 0.12);
+        }
+
+        .op:hover {
+            background: rgba(110, 168, 255, 0.25);
+        }
+
+        .eq {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            box-shadow: 0 8px 20px rgba(118, 75, 162, 0.45);
+        }
+
+        .eq:hover {
+            filter: brightness(1.15);
+        }
+
+        .zero {
+            grid-column: span 2;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="calculator">
+        <div class="display">
+            <div class="history" id="history"></div>
+            <div class="result" id="result">0</div>
+        </div>
+
+        <div class="buttons">
+            <button class="fn" data-action="clear">AC</button>
+            <button class="fn" data-action="delete">⌫</button>
+            <button class="fn" data-action="percent">%</button>
+            <button class="op" data-action="operator" data-op="÷">÷</button>
+
+            <button data-num="7">7</button>
+            <button data-num="8">8</button>
+            <button data-num="9">9</button>
+            <button class="op" data-action="operator" data-op="×">×</button>
+
+            <button data-num="4">4</button>
+            <button data-num="5">5</button>
+            <button data-num="6">6</button>
+            <button class="op" data-action="operator" data-op="−">−</button>
+
+            <button data-num="1">1</button>
+            <button data-num="2">2</button>
+            <button data-num="3">3</button>
+            <button class="op" data-action="operator" data-op="+">+</button>
+
+            <button class="zero" data-num="0">0</button>
+            <button data-action="decimal">.</button>
+            <button class="eq" data-action="equals">=</button>
+        </div>
+    </div>
+
+    <script>
+        const historyEl = document.getElementById('history');
+        const resultEl = document.getElementById('result');
+        const ERROR = 'خاتالىق';
+
+        // ——— ھالەت (state) ———
+        let displayValue = '0';       // ئېكراندىكى سان
+        let firstOperand = null;      // بىرىنچى سان
+        let operator = null;          // مەشغۇلات بەلگىسى
+        let waitingForSecond = false; // يېڭى ساننى كۈتۈش ھالىتى
+        let justEvaluated = false;    // «=» بېسىلغاندىن كېيىن
+        let historyText = '';         // ئۈستى قۇردىكى ئىپادە
+
+        function updateDisplay() {
+            resultEl.textContent = displayValue;
+            historyEl.textContent = historyText ||
+                (firstOperand !== null && operator ? firstOperand + ' ' + operator : '');
+        }
+
+        function reset() {
+            displayValue = '0';
+            firstOperand = null;
+            operator = null;
+            waitingForSecond = false;
+            justEvaluated = false;
+            historyText = '';
+        }
+
+        function inputDigit(d) {
+            if (displayValue === ERROR) return;
+            if (waitingForSecond || justEvaluated) {
+                displayValue = d;
+                waitingForSecond = false;
+                justEvaluated = false;
+                historyText = '';
+            } else {
+                if (displayValue.replace(/[-.]/g, '').length >= 12) return;
+                displayValue = displayValue === '0' ? d : displayValue + d;
+            }
+        }
+
+        function inputDecimal() {
+            if (displayValue === ERROR) return;
+            if (waitingForSecond || justEvaluated) {
+                displayValue = '0.';
+                waitingForSecond = false;
+                justEvaluated = false;
+                historyText = '';
+            } else if (!displayValue.includes('.')) {
+                displayValue += '.';
+            }
+        }
+
+        function calculate(a, b, op) {
+            switch (op) {
+                case '+': return a + b;
+                case '−': return a - b;
+                case '×': return a * b;
+                case '÷': return b === 0 ? NaN : a / b;
+            }
+        }
+
+        function formatNumber(num) {
+            if (isNaN(num) || !isFinite(num)) return ERROR;
+            let s = parseFloat(num.toPrecision(12)).toString();
+            if (s.length > 14) s = num.toExponential(6);
+            return s;
+        }
+
+        function chooseOperator(op) {
+            if (displayValue === ERROR) return;
+            const value = parseFloat(displayValue);
+            if (isNaN(value)) return;
+
+            if (firstOperand === null) {
+                firstOperand = value;
+            } else if (operator !== null && !waitingForSecond) {
+                // زەنجىرسىمان ھېسابلاش: 2 + 3 + 4 ...
+                const result = calculate(firstOperand, value, operator);
+                displayValue = formatNumber(result);
+                if (displayValue === ERROR) { reset(); return; }
+                firstOperand = parseFloat(displayValue);
+            }
+            operator = op;
+            waitingForSecond = true;
+            justEvaluated = false;
+            historyText = '';
+        }
+
+        function equals() {
+            if (displayValue === ERROR) return;
+            const value = parseFloat(displayValue);
+            if (operator === null || firstOperand === null || isNaN(value)) return;
+
+            const result = calculate(firstOperand, value, operator);
+            historyText = firstOperand + ' ' + operator + ' ' + value + ' =';
+            displayValue = formatNumber(result);
+
+            firstOperand = null;
+            operator = null;
+            waitingForSecond = false;
+            justEvaluated = true;
+        }
+
+        function percent() {
+            if (displayValue === ERROR) return;
+            const value = parseFloat(displayValue);
+            if (isNaN(value)) return;
+            displayValue = formatNumber(value / 100);
+        }
+
+        function deleteDigit() {
+            if (displayValue === ERROR || waitingForSecond || justEvaluated) return;
+            if (displayValue.length <= 1) {
+                displayValue = '0';
+            } else {
+                displayValue = displayValue.slice(0, -1);
+            }
+        }
+
+        // ——— كۇنۇپكىلارغا ۋەقە باغلاش ———
+        document.querySelectorAll('.buttons button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const { num, action, op } = btn.dataset;
+
+                if (num !== undefined) inputDigit(num);
+                else if (action === 'operator') chooseOperator(op);
+                else if (action === 'decimal') inputDecimal();
+                else if (action === 'clear') reset();
+                else if (action === 'delete') deleteDigit();
+                else if (action === 'percent') percent();
+                else if (action === 'equals') equals();
+
+                updateDisplay();
+            });
+        });
+
+        // ——— كۇنۇپكا تاختىسى (keyboard) قوللىشى ———
+        document.addEventListener('keydown', (e) => {
+            const key = e.key;
+
+            if (/^[0-9]$/.test(key)) inputDigit(key);
+            else if (key === '.' || key === ',') inputDecimal();
+            else if (key === '+') chooseOperator('+');
+            else if (key === '-') chooseOperator('−');
+            else if (key === '*' || key === 'x') chooseOperator('×');
+            else if (key === '/') { e.preventDefault(); chooseOperator('÷'); }
+            else if (key === 'Enter' || key === '=') { e.preventDefault(); equals(); }
+            else if (key === 'Backspace') deleteDigit();
+            else if (key === 'Escape') reset();
+            else if (key === '%') percent();
+
+            updateDisplay();
+        });
+    </script>
+</body>
+
+</html>
+```
+
+## ئىشلىتىش ئۇسۇلى
+
+1. يۇقىرىدىكى كودنى تولۇق كۆچۈرۈۋېلىڭ
+2. ئۇنى `hesabliguch.html` دەپ بىر ھۆججەتكە ساقلاڭ
+3. ھۆججەتنى قوش چېكىپ تور كۆرگۈچتە (Chrome، Edge، Firefox...) ئېچىڭ — شۇنىڭ بىلەنلا ئىشلەيدۇ!
+
+## ئىقتىدارلىرى
+
+- **تۆت ئاساسىي مەشغۇلات**: قوشۇش (+)، ئېلىش (−)، كۆپەيتىش (×)، بۆلۈش (÷)
+- **پىرسەنت (%)** ۋە **ئونلۇق نۇقتا** قوللاش
+- **AC** — پۈتۈنلەي تازىلاش، **⌫** — بىر سان ئۆچۈرۈش
+- **كۇنۇپكا تاختىسى قوللاش**: سانلارنى، `+ - * /`، `Enter`، `Backspace`، `Esc` نى بىۋاسىتە بېسىپ ئىشلىتەلەيسىز
+- ئۈستى قۇردا **ھېسابلاش ئىپادىسى** كۆرۈنۈپ تۇرىدۇ
+- نۆلگە بۆلگەندە **«خاتالىق»** ئاگاھلاندۇرۇشى چىقىدۇ
+- ئەينەكسىمان (glassmorphism) زامانىۋې لايىھە، تېلېفوندىمۇ ماسلىشىدۇ
+
+رەڭلىرىنى ئۆزگەرتمەكچى بولسىڭىز، CSS قىسمىدىكى `background` ۋە رەڭ كودلىرىنى (`#667eea`، `#ffb340` قاتارلىق)
+ئۆزگەرتسىڭىزلا بولىدۇ. يەنە باشقا ئىقتىدار (مىسالەن: تارىخ خاتىرىسى، ئىلمىي ھېسابلاش) قوشۇشنى خالىسىڭىز، ئېيتىڭ! 😊
